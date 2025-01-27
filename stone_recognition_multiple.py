@@ -65,14 +65,17 @@ def training_gbdt(training_data, shuffle=False):
     y_test = testing_set['label']
     X_train = training_set.drop('label', axis=1)
     X_test = testing_set.drop('label', axis=1)
+    print('Trainingset labels:')
     print(y_train.tolist())
     gradient_booster = GradientBoostingClassifier(learning_rate=0.1)
     gradient_booster.fit(X_train,y_train)
+    print('Prediction results of testset:')
     print(list(gradient_booster.predict(X_test)))
+    print('True results of testset:')
     print(y_test.tolist())
     print(classification_report(y_test,gradient_booster.predict(X_test)))
     
-    print('输出特征重要性：')
+    print('Feature importance:')
     fi = gradient_booster.feature_importances_
     feature_cols = list(training_data.columns)[1:]
 
