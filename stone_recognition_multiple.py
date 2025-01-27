@@ -71,6 +71,7 @@ def training_gbdt(training_data, shuffle=False):
     gradient_booster.fit(X_train,y_train)
     print('Prediction results of testset:')
     print(list(gradient_booster.predict(X_test)))
+    print(list(gradient_booster.predict_proba(X_test)))
     print('True results of testset:')
     print(y_test.tolist())
     print(classification_report(y_test,gradient_booster.predict(X_test)))
