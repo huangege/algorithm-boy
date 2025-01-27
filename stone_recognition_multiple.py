@@ -18,51 +18,46 @@ label_dict = {
 }
 
 multiple_data_path = '/Users/duruihuan/Projects/algorithm-boy/data_2501/六种典型.xlsx'
+feature_col_prefix_path = '/Users/duruihuan/Projects/algorithm-boy/data_2501/feature_col_prefix.csv'
 
-df = pd.read_excel(multiple_data_path, sheet_name='铌铁矿')
-
-
-
-def data_process():
-    all_data_training = open(all_data_training_path, 'w')
-    zjs_data_raw = open(zjs_raw_path, 'r')
-    lhs_data_raw = open(lhs_raw_path, 'r')
-
-    data_training = read_and_tranverse(zjs_data_raw, 0)
-    data_training = data_training + read_and_tranverse(lhs_data_raw, 1, False)
-
-    for i in data_training:
-        all_data_training.write(i)
-
-    all_data_training.close()
-
-def read_and_tranverse(data_row, label=0, header=True):
+def multiple_data_process():
     data_training = []
-    head_label = 'label'
-    lines = data_row.readlines()
-    head_raw = lines[0].replace('\r', '').replace('\n', '')
-    head1 = head_raw.replace(',', '-K,') + '-K'
-    head2 = head_raw.replace(',', '-L,') + '-L'
-    head3 = head_raw.replace(',', '-M,') + '-M'
-    head_training = head_label + ',' + head1 + ',' + head2 + ',' + head3 + '\n'
-    if header:
-        data_training.append(head_training)
-    lines = lines[1:]
+    feature_col_prefix = pd.read_csv(feature_col_prefix_path)
+    feature_col_prefix_list = feature_col_prefix['col_prefix'].tolist()
+    feature_cols = ['label']
+    for i in feature_col_prefix_list:
+        feature_cols.append(i + '-K')
+        feature_cols.append(i + '-L')
+        feature_cols.append(i + '-M')
 
-    for i in range(len(lines)):
-        lines[i] = lines[i].replace('\r', '').replace('\n', '')
+    for label in label_dict:
+        if label in ['磷灰石', '重晶石']:
+            continue
+        df = pd.read_excel(multiple_data_path, sheet_name=label)
+        label_index = label_dict[label]
+        df = df.fillna(0.0)
+        rows, columns = df.shape
+        if columns % 4 != 0:
+            print(f'Wrong data: {label}')
+            return None
+        num_data = columns // 4
+        for i in range(num_data):
+            feature_line = [label_index]
+            for j in range(1, 85):
+                feature_line.append(df.iloc[j, i * 4 + 1])
+                feature_line.append(df.iloc[j, i * 4 + 2])
+                feature_line.append(df.iloc[j, i * 4 + 3])
+            data_training.append(feature_line)
+        
+    training_df = pd.DataFrame(data_training, columns=feature_cols)
 
-    num_samples = len(lines) // 3
+    return training_df
 
-    for i in range(num_samples):
-        newline = str(label) + ',' + lines[i * 3] + ',' +  lines[i * 3 + 1]  + ',' +  lines[i * 3 + 2] + '\n'
-        data_training.append(newline)
 
-    return data_training
-
-def training_gbdt():
-    training_data = pd.read_csv(all_data_training_path)
+def training_gbdt(training_data, shuffle=False):
     print(len(training_data))
+    if shuffle:
+         training_data = training_data.sample(frac=1.0)
     # split training and testing
     training_set = training_data.sample(frac=0.5)
     testing_set = training_data.drop(training_set.index)
@@ -70,13 +65,11 @@ def training_gbdt():
     y_test = testing_set['label']
     X_train = training_set.drop('label', axis=1)
     X_test = testing_set.drop('label', axis=1)
-    print(y_train)
+    print(y_train.tolist())
     gradient_booster = GradientBoostingClassifier(learning_rate=0.1)
     gradient_booster.fit(X_train,y_train)
-    print(gradient_booster.predict(X_test))
-    print(y_test)
-    print(gradient_booster.predict(X_test))
-    print(y_test)
+    print(list(gradient_booster.predict(X_test)))
+    print(y_test.tolist())
     print(classification_report(y_test,gradient_booster.predict(X_test)))
     
     print('输出特征重要性：')
@@ -90,9 +83,24 @@ def training_gbdt():
         print(fi[i][0], ': ', fi[i][1])
 
 
+def train_multiple():
+    training_data = multiple_data_process()
+    # train a model for each stone
+    for label in label_dict:
+        if label in ['磷灰石', '重晶石']:
+                    continue
+        print('================================')
+        print(f'Training model for {label}.')
+        label_index = label_dict[label]
+        training_data_cur = training_data.copy()
+        training_data_cur['label'] = (training_data_cur['label'] == label_index).astype(int)
+        training_gbdt(training_data_cur, shuffle=True)
+        print('================================')
+
+
 
 if __name__ == "__main__":
-    training_gbdt()
+    train_multiple()
 
 
 
